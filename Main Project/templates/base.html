@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="/static/main.css" />
+
+  <title>Life Of Momentum</title>
+</head>
+
+<body>
+  <a href="/lom" class="main-title">
+    Life Of Momentum
+  </a>
+
+  <div class="login-area">
+    {% if user %}
+      {{user.name}} ( <a class="login-link" href="/lom/newpost">new post</a> | <a class="login-link" href="/lom/logout">logout</a> )
+    {% else %}
+      <a class="login-link" href="/lom/login">login</a>
+      |
+      <a class="login-link" href="/lom/signup">signup</a>
+    {% endif %}
+  </div>
+
+  <div id="content">
+  {% block content %}
+  {% endblock %}
+  </div>
+</body>
+
+</html>
+
