@@ -224,23 +224,21 @@ class EditComment(BlogHandler):
         else:
             return self.render('editcomment.html', comment=comment)
 
-    def post(self, post_id):
-        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-        post = db.get(key)
+    def post(self, comment_id):
+        key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
+        comment = db.get(key)
         # Double check valid user:
         if not self.user:
             return self.redirect('/lom/login')
-        if not self.user_owns_post(post):
+        if not self.user_owns_comment(comment):
             return self.redirect('/lom/login')
         # Else continue to edit post function:
-        subject = self.request.get('subject')
         content = self.request.get('content')
-        if subject and content:
-            update = Post.get_by_id(int(post_id), parent=blog_key())
-            update.subject = subject
+        if content:
+            update = Comment.get_by_id(int(comment_id), parent=blog_key())
             update.content = content
             update.put()
-            return self.redirect('/lom/%s' % str(update.key().id()))
+            return self.redirect('/lom/%s' % str(update.post_id))
 
 class EditPost(BlogHandler):
     def get(self, post_id):
@@ -275,6 +273,35 @@ class EditPost(BlogHandler):
             update.content = content
             update.put()
             return self.redirect('/lom/%s' % str(update.key().id()))
+
+class DeleteComment(BlogHandler):
+    def get(self, comment_id):
+        key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
+        comment = db.get(key)
+        # Check if post exists:
+        if not comment:
+            return self.error(404)
+        # Double check valid user:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if not self.user_owns_comment(comment):
+            return self.redirect('/lom/login')
+        # Else continue to post request:
+        else:
+            return self.render("deletecomment.html", comment = comment)
+
+    def post(self, comment_id):
+        key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
+        comment = db.get(key)
+        # Double check valid user:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if not self.user_owns_comment(comment):
+            return self.redirect('/lom/login')
+        # Else continue to delete post function:
+        else:
+            comment.delete()
+            return self.redirect('/lom/%s' % str(comment.post_id))
 
 class DeletePost(BlogHandler):
     def get(self, post_id):
@@ -397,6 +424,7 @@ app = webapp2.WSGIApplication([('/lom/?', BlogFront),
                                ('/lom/login', Login),
                                ('/lom/logout', Logout),
                                ('/lom/deletepost/([0-9]+)', DeletePost),
+                               ('/lom/deletecomment/([0-9]+)', DeleteComment),
                                ('/lom/editpost/([0-9]+)', EditPost),
                                ('/lom/editcomment/([0-9]+)', EditComment)],
                                debug=True)
