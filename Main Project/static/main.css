@@ -48,8 +48,8 @@ label + label {
     margin-top: 20px;
 }
 
-input[type=text] {
-    width: 500px;
+input[type=text, type=password] {
+    width: 200px;
     font-size: 20px;
     padding: 2px;
     font-family: monospace;
@@ -63,7 +63,7 @@ textarea {
 }
 
 input[type=submit] {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .main-title {
@@ -86,8 +86,13 @@ input[type=submit] {
 }
 
 .post-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: bold;
+}
+
+.comment-title {
+  font-size: 18px;
+  font-weight: bold;
 }
 
 .post-date {
@@ -100,6 +105,11 @@ input[type=submit] {
 
 .post-content {
     margin-top: 5px;
+}
+
+a {
+    text-decoration:none;
+    color: black
 }
 
 /*Media Queries*/

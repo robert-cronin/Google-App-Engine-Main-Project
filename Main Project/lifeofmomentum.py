@@ -58,6 +58,13 @@ class BlogHandler(webapp2.RequestHandler):
         uid = self.read_secure_cookie('user_id')
         self.user = uid and User.by_id(int(uid))
 
+    def user_owns_post(self, post):
+        return self.user.key().id() == post.user_id
+
+    def user_owns_comment(self, comment):
+        return self.user.key().id() == comment.user_id
+
+
 def render_post(response, post):
     response.out.write('<b>' + post.subject + '</b><br>')
     response.out.write(post.content)
@@ -107,59 +114,196 @@ class User(db.Model):
         if u and valid_pw(name, pw, u.pw_hash):
             return u
 
-
-##### blog stuff
-
 def blog_key(name = 'default'):
     return db.Key.from_path('blogs', name)
+
+# Create Post database table
 
 class Post(db.Model):
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
     last_modified = db.DateTimeProperty(auto_now = True)
+    user_name = db.StringProperty(required = True)
+    user_id = db.IntegerProperty(required = True)
 
     def render(self):
         self._render_text = self.content.replace('\n', '<br>')
         return render_str("post.html", p = self)
 
+# Create Comment database table
+
+class Comment(db.Model):
+    user_name = db.StringProperty(required = True)
+    user_id = db.IntegerProperty(required = True)
+    content = db.TextProperty(required = True)
+    created = db.DateTimeProperty(auto_now_add = True)
+    post_id = db.IntegerProperty(required = True)
+
 class BlogFront(BlogHandler):
     def get(self):
         posts = greetings = Post.all().order('-created')
-        self.render('front.html', posts = posts)
+        return self.render('front.html', posts = posts)
 
 class PostPage(BlogHandler):
     def get(self, post_id):
-        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-        post = db.get(key)
+        postkey = db.Key.from_path('Post', int(post_id), parent=blog_key())
+        post = db.get(postkey)
+        # commentkey = db.Key.from_path('Comment', int(post_id), parent=blog_key())
+        # comments = db.get(commentkey)
+        comments = Comment.all()
 
         if not post:
             self.error(404)
             return
 
-        self.render("permalink.html", post = post)
+        return self.render("permalink.html", post = post, comments = comments)
+
+class NewComment(BlogHandler):
+    def get(self, post_id):
+        if self.user:
+            return self.render("newcomment.html")
+        else:
+            return self.redirect("/lom/login")
+
+    def post(self, post_id):
+        if not self.user:
+            return self.redirect("/lom/login")
+
+        content = self.request.get('content')
+        user_name = self.user.name
+        user_id = self.user.key().id()
+
+        if content:
+            c = Comment(post_id = int(post_id), parent = blog_key(), content = content, user_name = user_name, user_id = user_id)
+            c.put()
+            return self.redirect('/lom/%s'%post_id)
+        else:
+            error = "Please provide both a title and content"
+            return self.render("newcomment.html", content=content, error=error)
 
 class NewPost(BlogHandler):
     def get(self):
         if self.user:
-            self.render("newpost.html")
+            return self.render("newpost.html")
         else:
-            self.redirect("/lom/login")
+            return self.redirect("/lom/login")
 
     def post(self):
         if not self.user:
-            self.redirect('/lom')
+            return self.redirect('/lom')
 
         subject = self.request.get('subject')
         content = self.request.get('content')
+        user_name = self.user.name
+        user_id = self.user.key().id()
 
         if subject and content:
-            p = Post(parent = blog_key(), subject = subject, content = content)
+            p = Post(parent = blog_key(), subject = subject, content = content, user_name = user_name, user_id = user_id)
             p.put()
-            self.redirect('/lom/%s' % str(p.key().id()))
+            return self.redirect('/lom/%s' % str(p.key().id()))
         else:
             error = "Please provide both a title and content"
-            self.render("newpost.html", subject=subject, content=content, error=error)
+            return self.render("newpost.html", subject=subject, content=content, error=error)
+
+# Define Edit and Delete post handlers
+
+class EditComment(BlogHandler):
+    def get(self, comment_id):
+        key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
+        comment = db.get(key)
+        # Check if comment_id exists:
+        if not comment:
+            return self.error(404)
+        # Check is valid user first:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if not self.user_owns_comment(comment):
+            return self.redirect('/lom/login')
+        # Else continue to post request:
+        else:
+            return self.render('editcomment.html', comment=comment)
+
+    def post(self, post_id):
+        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+        post = db.get(key)
+        # Double check valid user:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if not self.user_owns_post(post):
+            return self.redirect('/lom/login')
+        # Else continue to edit post function:
+        subject = self.request.get('subject')
+        content = self.request.get('content')
+        if subject and content:
+            update = Post.get_by_id(int(post_id), parent=blog_key())
+            update.subject = subject
+            update.content = content
+            update.put()
+            return self.redirect('/lom/%s' % str(update.key().id()))
+
+class EditPost(BlogHandler):
+    def get(self, post_id):
+        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+        post = db.get(key)
+        # Check if post exists:
+        if not post:
+            return self.error(404)
+        # Check is valid user first:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if not self.user_owns_post(post):
+            return self.redirect('/lom/login')
+        # Else continue to post request:
+        else:
+            return self.render('editpost.html', post=post)
+
+    def post(self, post_id):
+        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+        post = db.get(key)
+        # Double check valid user:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if not self.user_owns_post(post):
+            return self.redirect('/lom/login')
+        # Else continue to edit post function:
+        subject = self.request.get('subject')
+        content = self.request.get('content')
+        if subject and content:
+            update = Post.get_by_id(int(post_id), parent=blog_key())
+            update.subject = subject
+            update.content = content
+            update.put()
+            return self.redirect('/lom/%s' % str(update.key().id()))
+
+class DeletePost(BlogHandler):
+    def get(self, post_id):
+        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+        post = db.get(key)
+        # Check if post exists:
+        if not post:
+            return self.error(404)
+        # Double check valid user:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if not self.user_owns_post(post):
+            return self.redirect('/lom/login')
+        # Else continue to post request:
+        else:
+            return self.render("deletepost.html", post = post)
+
+    def post(self, post_id):
+        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+        post = db.get(key)
+        # Double check valid user:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if not self.user_owns_post(post):
+            return self.redirect('/lom/login')
+        # Else continue to delete post function:
+        else:
+            post.delete()
+            return self.redirect("/lom")
 
 USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
 def valid_username(username):
@@ -203,9 +347,9 @@ class Signup(BlogHandler):
             have_error = True
 
         if have_error:
-            self.render('signup-form.html', **params)
+            return self.render('signup-form.html', **params)
         else:
-            self.done()
+            return self.done()
 
     def done(self, *a, **kw):
         raise NotImplementedError
@@ -222,11 +366,11 @@ class Register(Signup):
             u.put()
 
             self.login(u)
-            self.redirect('/lom')
+            return self.redirect('/lom')
 
 class Login(BlogHandler):
     def get(self):
-        self.render('login-form.html')
+        return self.render('login-form.html')
 
     def post(self):
         username = self.request.get('username')
@@ -235,29 +379,24 @@ class Login(BlogHandler):
         u = User.login(username, password)
         if u:
             self.login(u)
-            self.redirect('/lom')
+            return self.redirect('/lom')
         else:
             msg = 'Invalid login'
-            self.render('login-form.html', error = msg)
+            return self.render('login-form.html', error = msg)
 
 class Logout(BlogHandler):
     def get(self):
         self.logout()
-        self.redirect('/lom')
-
-class Welcome(BlogHandler):
-    def get(self):
-        username = self.request.get('username')
-        if valid_username(username):
-            self.render('welcome.html', username = username)
-        else:
-            self.redirect('/lom/signup')
+        return self.redirect('/lom')
 
 app = webapp2.WSGIApplication([('/lom/?', BlogFront),
                                ('/lom/([0-9]+)', PostPage),
                                ('/lom/newpost', NewPost),
+                               ('/lom/([0-9]+)/newcomment', NewComment),
                                ('/lom/signup', Register),
                                ('/lom/login', Login),
                                ('/lom/logout', Logout),
-                               ('/lom/welcome', Welcome)],
-                              debug=True)
+                               ('/lom/deletepost/([0-9]+)', DeletePost),
+                               ('/lom/editpost/([0-9]+)', EditPost),
+                               ('/lom/editcomment/([0-9]+)', EditComment)],
+                               debug=True)

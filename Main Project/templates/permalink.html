@@ -2,4 +2,21 @@
 
 {% block content %}
   {{post.render() | safe}}
+  <div><hr style="width: 212px; float: left;"></div>
+  <br>
+  <div><a style="color: #999;" href="./editpost/{{post.key().id()}}">Edit Post</a> | <a style="color: #999;" href="deletepost/{{post.key().id()}}">Delete Post</a> | <a style="color: #999;" href="{{post.key().id()}}/newcomment">Comment</a></div>
+  {% if comments %}
+  <br><br>
+  <div class="comment-title">Comments:</div>
+
+    {% for comment in comments: %}
+    <br>
+      <divs>
+        <strong>{{comment.user_name}}: </strong>{{comment.content}}
+      </div>
+      <div><hr style="width: 212px; float: left;"></div>
+      <br>
+      <div><a style="color: #999;" href="./editcomment/{{comment.key().id()}}">Edit Comment</a> | <a style="color: #999;" href="./deletecomment/{{comment.key().id()}}">Delete Comment</a></div>
+    {% endfor %}
+  {% endif %}
 {% endblock %}
