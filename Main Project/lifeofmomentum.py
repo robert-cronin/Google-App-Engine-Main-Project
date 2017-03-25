@@ -140,6 +140,19 @@ class Comment(db.Model):
     created = db.DateTimeProperty(auto_now_add = True)
     post_id = db.IntegerProperty(required = True)
 
+class PostLike(db.Model):
+    post_id = db.IntegerProperty(required = True)
+    user_id = db.IntegerProperty(required = True)
+    user_name = db.StringProperty(required = True)
+
+class CommentLike(db.Model):
+    post_id = db.IntegerProperty(required = True)
+    comment_id = db.IntegerProperty(required = True)
+    user_id = db.IntegerProperty(required = True)
+    user_name = db.StringProperty(required = True)
+
+
+
 class BlogFront(BlogHandler):
     def get(self):
         posts = greetings = Post.all().order('-created')
