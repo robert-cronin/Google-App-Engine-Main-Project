@@ -161,11 +161,19 @@ class BlogFront(BlogHandler):
 
 class PostPage(BlogHandler):
     def get(self, post_id):
+        # Setup the post to pass into the template
         postkey = db.Key.from_path('Post', int(post_id), parent=blog_key())
-        post = db.get(postkey)
-        # commentkey = db.Key.from_path('Comment', int(post_id), parent=blog_key())
-        # comments = db.get(commentkey)
-        comments = Comment.all().filter('post_id =', int(post_id))
+        p = db.get(postkey)
+        postcount = PostLike.all().filter('post_id =', int(p.key().id())).count()
+        post = [p, postcount]
+
+
+        # Setup comments to pass into the template
+        cs = Comment.all().filter('post_id =', int(post_id))
+        comments = []
+        for c in cs:
+            likecount = CommentLike.all().filter('comment_id =', int(c.key().id())).count()
+            comments.append([c, likecount])
 
         if not post:
             self.error(404)
@@ -224,7 +232,8 @@ class NewPost(BlogHandler):
 
 class EditComment(BlogHandler):
     def get(self, comment_id):
-        commentlike = db.get(key)
+        key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
+        comment = db.get(key)
         # Check if comment_id exists:
         if not comment:
             return self.error(404)
@@ -235,7 +244,7 @@ class EditComment(BlogHandler):
             return self.redirect('/lom/login')
         # Else continue to post request:
         else:
-            return self.redirect('editcomment.html', comment=comment)
+            return self.render('editcomment.html', comment=comment)
 
     def post(self, comment_id):
         key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
@@ -257,10 +266,6 @@ class LikeComment(BlogHandler):
     def get(self, comment_id):
         key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
         comment = db.get(key)
-        user_name = self.user.name
-        user_id = self.user.key().id()
-        post_id = comment.post_id
-        commentlike = CommentLike.all().filter('user_id =', user_id).filter('comment_id =', comment_id)
 
         if not comment:
             return self.error(404)
@@ -269,6 +274,12 @@ class LikeComment(BlogHandler):
             return self.redirect('/lom/login')
         if self.user_owns_comment(comment):
             return self.redirect('/lom/%s' % str(comment.post_id))
+
+        user_name = self.user.name
+        user_id = self.user.key().id()
+        post_id = comment.post_id
+        commentlike = CommentLike.all().filter('user_id =', user_id).filter('comment_id =', comment_id)
+
         if hasattr(commentlike, 'user_id'):
             return self.render('unlikecomment.html', comment=comment)
         else:
@@ -277,10 +288,6 @@ class LikeComment(BlogHandler):
     def post(self, comment_id):
         key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
         comment = db.get(key)
-        user_name = self.user.name
-        user_id = self.user.key().id()
-        post_id = comment.post_id
-        commentlike = CommentLike.all().filter('user_id =', user_id).filter('comment_id =', comment_id)
 
         # Check if comment exists:
         if not comment:
@@ -291,15 +298,68 @@ class LikeComment(BlogHandler):
         if self.user_owns_comment(comment):
             return self.redirect('/lom/%s' % str(comment.post_id))
 
+        user_name = self.user.name
+        user_id = self.user.key().id()
+        post_id = comment.post_id
+        commentlike = CommentLike.all().filter('user_id =', user_id).filter('comment_id =', comment_id)
+
         # Else continue to post request:
         if hasattr(commentlike, 'user_id'):
-        # cl = commentlike.get_or_insert('ID', user_name = user_name, user_id = user_id, post_id = post_id, comment_id = int(comment_id))
             commentlike.delete()
             return self.redirect('/lom/%s' % str(comment.post_id))
         else:
             cl = CommentLike(parent = blog_key(), user_name = user_name, user_id = user_id, post_id = post_id, comment_id = int(comment_id))
             cl.put()
             return self.redirect('/lom/%s' % str(comment.post_id))
+
+class LikePost(BlogHandler):
+    def get(self, post_id):
+        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+        post = db.get(key)
+
+        if not post:
+            return self.error(404)
+        # Check is valid user first:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if self.user_owns_post(post):
+            return self.redirect('/lom/%s' % str(post_id))
+
+        user_name = self.user.name
+        user_id = self.user.key().id()
+        postlike = PostLike.all().filter('user_id =', user_id).filter('post_id =', post_id)
+
+        if hasattr(postlike, 'user_id'):
+            return self.render('unlikepost.html', post=post)
+        else:
+            return self.render('likepost.html', post=post)
+
+    def post(self, post_id):
+        key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+        post = db.get(key)
+
+        # Check if comment exists:
+        if not post:
+            return self.error(404)
+        # Check is valid user first:
+        if not self.user:
+            return self.redirect('/lom/login')
+        if self.user_owns_post(post):
+            return self.redirect('/lom/%s' % str(post_id))
+
+        user_name = self.user.name
+        user_id = self.user.key().id()
+        postlike = PostLike.all().filter('user_id =', user_id).filter('post_id =', post_id)
+
+        # Else continue to post request:
+        if hasattr(postlike, 'user_id'):
+            postlike.delete()
+            return self.redirect('/lom/%s' % str(comment.post_id))
+        else:
+            pl = PostLike(parent = blog_key(), user_name = user_name, user_id = user_id, post_id = int(post_id))
+            pl.put()
+            return self.redirect('/lom/%s' % str(post_id))
+
 
 class EditPost(BlogHandler):
     def get(self, post_id):
@@ -354,7 +414,7 @@ class DeleteComment(BlogHandler):
     def post(self, comment_id):
         key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
         comment = db.get(key)
-        commentlike = CommentLike.get_by_id(int(comment_id), parent=blog_key()).all()
+        commentlike = CommentLike.get_by_id(int(comment_id), parent=blog_key())
         # Double check valid user:
         if not self.user:
             return self.redirect('/lom/login')
@@ -491,5 +551,7 @@ app = webapp2.WSGIApplication([('/lom/?', BlogFront),
                                ('/lom/editpost/([0-9]+)', EditPost),
                                ('/lom/editcomment/([0-9]+)', EditComment),
                                ('/lom/likecomment/([0-9]+)', LikeComment),
-                               ('/lom/unlikecomment/([0-9]+)', LikeComment)],
+                               ('/lom/unlikecomment/([0-9]+)', LikeComment),
+                               ('/lom/likepost/([0-9]+)', LikePost),
+                               ('/lom/unlikepost/([0-9]+)', LikePost)],
                                debug=True)
