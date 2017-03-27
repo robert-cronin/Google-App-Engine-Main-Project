@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
 {% block content %}
-  {{post.render() | safe}}
-  <div><hr style="width: 212px; float: left;"></div>
+  {{post[0].render() | safe}}
+  <div><hr style="width: 271px; float: left;"></div>
   <br>
-  <div><a style="color: #999;" href="./editpost/{{post.key().id()}}">Edit Post</a> | <a style="color: #999;" href="deletepost/{{post.key().id()}}">Delete Post</a> | <a style="color: #999;" href="{{post.key().id()}}/newcomment">Comment</a></div>
+  <div><span style="color: #999;">[{{post[1]}}]</span><a style="color: #999;" href="./likepost/{{post[0].key().id()}}"> Like</a> | <a style="color: #999;" href="./editpost/{{post[0].key().id()}}">Edit Post</a> | <a style="color: #999;" href="deletepost/{{post[0].key().id()}}">Delete Post</a> | <a style="color: #999;" href="{{post[0].key().id()}}/newcomment">Comment</a></div>
   {% if comments %}
     <br><br>
     <div class="comment-title">Comments:</div>
     {% for comment in comments: %}
       <br>
       <divs>
-        <strong>{{comment.user_name}}: </strong>{{comment.content}}
+        <strong>{{comment[0].user_name}}: </strong>{{comment[0].content}}
       </div>
-      <div><hr style="width: 246px; float: left;"></div>
+      <div><hr style="width: 265px; float: left;"></div>
       <br>
-      <div><a style="color: #999;" href="./likecomment/{{comment.key().id()}}">Like</a> | <a style="color: #999;" href="./editcomment/{{comment.key().id()}}">Edit Comment</a> | <a style="color: #999;" href="./deletecomment/{{comment.key().id()}}">Delete Comment</a></div>
+      <div><span style="color: #999;">[{{comment[1]}}]</span><a style="color: #999;" href="./likecomment/{{comment[0].key().id()}}"> Like</a> | <a style="color: #999;" href="./editcomment/{{comment[0].key().id()}}">Edit Comment</a> | <a style="color: #999;" href="./deletecomment/{{comment[0].key().id()}}">Delete Comment</a></div>
     {% endfor %}
   {% endif %}
 {% endblock %}
