@@ -58,6 +58,13 @@ class BlogHandler(webapp2.RequestHandler):
         uid = self.read_secure_cookie('user_id')
         self.user = uid and User.by_id(int(uid))
 
+    def post_exists(self, post_id):
+        post = Post.all().filter('post_id =', int(post_id))
+        if not post.get():
+            return False
+        if post.get():
+            return True
+
     def user_owns_post(self, post):
         return self.user.key().id() == post.user_id
 
@@ -187,10 +194,14 @@ class NewComment(BlogHandler):
             return self.render("newcomment.html")
         else:
             return self.redirect("/lom/login")
+        if not self.post_exists(post_id):
+            return self.error(404)
 
     def post(self, post_id):
         if not self.user:
             return self.redirect("/lom/login")
+        if not self.post_exists(post_id):
+            return self.error(404)
 
         content = self.request.get('content')
         user_name = self.user.name
@@ -252,6 +263,9 @@ class EditComment(BlogHandler):
         # Double check valid user:
         if not self.user:
             return self.redirect('/lom/login')
+        # Check if comment_id exists:
+        if not comment:
+            return self.error(404)
         if not self.user_owns_comment(comment):
             return self.redirect('/lom/login')
         # Else continue to edit post function:
@@ -366,7 +380,7 @@ class EditPost(BlogHandler):
         key = db.Key.from_path('Post', int(post_id), parent=blog_key())
         post = db.get(key)
         # Check if post exists:
-        if not post:
+        if not self.post_exists(post_id):
             return self.error(404)
         # Check is valid user first:
         if not self.user:
@@ -383,6 +397,8 @@ class EditPost(BlogHandler):
         # Double check valid user:
         if not self.user:
             return self.redirect('/lom/login')
+        if not self.post_exists(post_id):
+            return self.error(404)
         if not self.user_owns_post(post):
             return self.redirect('/lom/login')
         # Else continue to edit post function:
@@ -399,12 +415,14 @@ class DeleteComment(BlogHandler):
     def get(self, comment_id):
         key = db.Key.from_path('Comment', int(comment_id), parent=blog_key())
         comment = db.get(key)
-        # Check if post exists:
+        # Check if comment exists:
         if not comment:
             return self.error(404)
         # Double check valid user:
         if not self.user:
             return self.redirect('/lom/login')
+        if not self.post_exists(comment.post_id):
+            return self.error(404)
         if not self.user_owns_comment(comment):
             return self.redirect('/lom/login')
         # Else continue to post request:
@@ -418,6 +436,11 @@ class DeleteComment(BlogHandler):
         # Double check valid user:
         if not self.user:
             return self.redirect('/lom/login')
+        # Check if comment exists:
+        if not comment:
+            return self.error(404)
+        if not self.post_exists(comment.post_id):
+            return self.error(404)
         if not self.user_owns_comment(comment):
             return self.redirect('/lom/login')
         # Else continue to delete post function:
@@ -431,7 +454,7 @@ class DeletePost(BlogHandler):
         key = db.Key.from_path('Post', int(post_id), parent=blog_key())
         post = db.get(key)
         # Check if post exists:
-        if not post:
+        if not self.post_exists(post_id):
             return self.error(404)
         # Double check valid user:
         if not self.user:
@@ -448,6 +471,8 @@ class DeletePost(BlogHandler):
         # Double check valid user:
         if not self.user:
             return self.redirect('/lom/login')
+        if not self.post_exists(post_id):
+            return self.error(404)
         if not self.user_owns_post(post):
             return self.redirect('/lom/login')
         # Else continue to delete post function:
