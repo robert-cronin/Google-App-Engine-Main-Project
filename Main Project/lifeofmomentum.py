@@ -59,11 +59,7 @@ class BlogHandler(webapp2.RequestHandler):
         self.user = uid and User.by_id(int(uid))
 
     def post_exists(self, post_id):
-        post = Post.all().filter('post_id =', int(post_id))
-        if not post.get():
-            return False
-        if post.get():
-            return True
+        return Post.get_by_id(int(post_id), parent=blog_key()) != None
 
     def user_owns_post(self, post):
         return self.user.key().id() == post.user_id
@@ -190,12 +186,13 @@ class PostPage(BlogHandler):
 
 class NewComment(BlogHandler):
     def get(self, post_id):
+        if not self.post_exists(post_id):
+            return self.error(404)
         if self.user:
             return self.render("newcomment.html")
         else:
             return self.redirect("/lom/login")
-        if not self.post_exists(post_id):
-            return self.error(404)
+
 
     def post(self, post_id):
         if not self.user:
